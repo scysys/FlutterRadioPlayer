@@ -8,5 +8,6 @@ enum class PlayerMethods(val value: String) {
     STOP("stop"),
     SET_URL("setUrl"),
     IS_PLAYING("isPlaying"),
-    SET_VOLUME("setVolume")
+    SET_VOLUME("setVolume"),
+    FORCE_NOTIFICATION("forceNotification")
 }

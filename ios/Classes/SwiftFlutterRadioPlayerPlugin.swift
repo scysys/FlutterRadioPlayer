@@ -27,11 +27,11 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin {
             print("method called to start the radio service")
             if let args = call.arguments as? Dictionary<String, Any>,
                 let streamURL = args["streamURL"] as? String,
-                let appName = args["appName"] as? String,
+                let initialTitle = args["initialTitle"] as? String,
                 let subTitle = args["subTitle"] as? String,
                 let playWhenReady = args["playWhenReady"] as? String
             {
-                streamingCore.initService(streamURL: streamURL, serviceName: appName, secondTitle: subTitle, playWhenReady: playWhenReady)
+                streamingCore.initService(streamURL: streamURL, serviceName: initialTitle, secondTitle: subTitle, playWhenReady: playWhenReady)
                 
                 NotificationCenter.default.addObserver(self, selector: #selector(onRecieve(_:)), name: Notifications.playbackNotification, object: nil)
                 result(nil)
@@ -88,6 +88,8 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin {
                 print("method called to setUrl")
                 streamingCore.setUrl(streamURL: streamURL, playWhenReady: playWhenReady)
             }
+            result(nil)
+        case "forceNotification":
             result(nil)
         default:
             result(nil)

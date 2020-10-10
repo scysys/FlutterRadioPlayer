@@ -19,6 +19,8 @@ import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
+import com.google.android.exoplayer2.metadata.Metadata
+import com.google.android.exoplayer2.metadata.MetadataOutput
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
@@ -31,7 +33,7 @@ import me.sithiramunasinghe.flutter.flutter_radio_player.R
 import me.sithiramunasinghe.flutter.flutter_radio_player.core.enums.PlaybackStatus
 import java.util.logging.Logger
 
-class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
+class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, MetadataOutput {
 
     private var logger = Logger.getLogger(StreamingCore::javaClass.name)
 
@@ -53,9 +55,11 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
     private var playerNotificationManager: PlayerNotificationManager? = null
 
     // session keys
-    private val playbackNotificationId = 1025
+    private val playbackNotificationId = 1602326668
     private val mediaSessionId = "streaming_audio_player_media_session"
     private val playbackChannelId = "streaming_audio_player_channel_id"
+
+    private var currentSong = ""
 
     inner class LocalBinder : Binder() {
         internal val service: StreamingCore
@@ -102,6 +106,10 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
         player?.playWhenReady = playWhenReady
     }
 
+    fun forceNotification() {
+        playerNotificationManager?.invalidate()
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
         logger.info("Firing up service. (onStartCommand)...")
@@ -111,14 +119,14 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
         logger.info("LocalBroadCastManager Received...")
 
         // get details
-        val appName = intent!!.getStringExtra("appName")
+        val initialTitle = intent!!.getStringExtra("initialTitle")
         val subTitle = intent.getStringExtra("subTitle")
         val streamUrl = intent.getStringExtra("streamUrl")
         val playWhenReady = intent.getStringExtra("playWhenReady") == "true"
 
         player = SimpleExoPlayer.Builder(context).build()
 
-        dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, appName))
+        dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, initialTitle))
 
         val audioSource = buildMediaSource(dataSourceFactory, streamUrl)
 
@@ -153,17 +161,12 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
         // set exo player configs
         player?.let {
             it.addListener(playerEvents)
+            it.addMetadataOutput(this)
             it.playWhenReady = playWhenReady
             it.prepare(audioSource)
         }
 
-        // register our meta data listener
-        player?.addMetadataOutput {
-            val metaData = it.get(0).toString()
-            localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", metaData))
-        }
-
-        val playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(
+        playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(
                 context,
                 playbackChannelId,
                 R.string.channel_name,
@@ -171,7 +174,12 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
                 playbackNotificationId,
                 object : PlayerNotificationManager.MediaDescriptionAdapter {
                     override fun getCurrentContentTitle(player: Player): String {
-                        return appName
+                        if (!currentSong.isEmpty() && isPlaying()) {
+                            // get song artist
+                            val prefixIndex = currentSong.indexOf(" - ")
+                            return currentSong.substring(0, prefixIndex).trim()
+                        }
+                        return initialTitle
                     }
 
                     @Nullable
@@ -181,7 +189,12 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
 
                     @Nullable
                     override fun getCurrentContentText(player: Player): String? {
-                        return subTitle
+                        if (!currentSong.isEmpty() && isPlaying()) {
+                            // get song title
+                            val prefixIndex = currentSong.indexOf(" - ")
+                            return currentSong.substring(prefixIndex + 2, currentSong.length).trim()
+                        }
+                        return "-"
                     }
 
                     @Nullable
@@ -210,15 +223,15 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
         mediaSessionConnector = MediaSessionConnector(mediaSession)
         mediaSessionConnector?.setPlayer(player)
 
-        playerNotificationManager.setUseStopAction(true)
-        playerNotificationManager.setFastForwardIncrementMs(0)
-        playerNotificationManager.setRewindIncrementMs(0)
-        playerNotificationManager.setUsePlayPauseActions(true)
-        playerNotificationManager.setUseNavigationActions(false)
-        playerNotificationManager.setUseNavigationActionsInCompactView(false)
+        playerNotificationManager?.setUseStopAction(true)
+        playerNotificationManager?.setFastForwardIncrementMs(0)
+        playerNotificationManager?.setRewindIncrementMs(0)
+        playerNotificationManager?.setUsePlayPauseActions(true)
+        playerNotificationManager?.setUseNavigationActions(false)
+        playerNotificationManager?.setUseNavigationActionsInCompactView(false)
 
-        playerNotificationManager.setPlayer(player)
-        playerNotificationManager.setMediaSessionToken(mediaSession.sessionToken)
+        playerNotificationManager?.setPlayer(player)
+        playerNotificationManager?.setMediaSessionToken(mediaSession.sessionToken)
 
         playbackStatus = PlaybackStatus.PLAYING
 
@@ -266,6 +279,20 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener {
                 }
             }
         }
+    }
+
+    override fun onMetadata(metadata: Metadata) {
+        currentSong = ""
+        for (n in 0 until metadata.length()) {
+            when (val md = metadata[n]) {
+                is com.google.android.exoplayer2.metadata.icy.IcyInfo -> {
+                    if (currentSong.isEmpty()) {
+                        currentSong = md.title?.trim() ?: ""
+                    }
+                }
+            }
+        }
+        localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", currentSong))
     }
 
     /**

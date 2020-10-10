@@ -47,18 +47,16 @@ class StreamingCore : NSObject, AVPlayerItemMetadataOutputPushDelegate {
         initPlayerObservers()
         
         // init Remote protocols.
-        initRemoteTransportControl(appName: serviceName, subTitle: secondTitle);
+        initRemoteTransportControl(initialTitle: serviceName, subTitle: secondTitle);
     }
     
     func metadataOutput(_ output: AVPlayerItemMetadataOutput, didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup], from track: AVPlayerItemTrack?) {
-      if let item = groups.first?.items.first // make this an AVMetadata item
-      {
-          item.value(forKeyPath: "value")
-          let song = (item.value(forKeyPath: "value")!)
-         pushEvent(typeEvent: "meta_data",eventName: song as! String)
-
-            
-        }}
+        if let item = groups.first?.items.first { // make this an AVMetadata item
+            item.value(forKeyPath: "value")
+            let song = (item.value(forKeyPath: "value")!) as! String
+            pushEvent(typeEvent: "meta_data", eventName: song)
+        }
+    }
     
     func play() -> PlayerStatus {
         print("invoking play method on service")
@@ -122,13 +120,13 @@ class StreamingCore : NSObject, AVPlayerItemMetadataOutputPushDelegate {
         NotificationCenter.default.post(name: Notifications.playbackNotification, object: nil, userInfo: [typeEvent: eventName])
     }
     
-    private func initRemoteTransportControl(appName: String, subTitle: String) {
+    private func initRemoteTransportControl(initialTitle: String, subTitle: String) {
         
         do {
             commandCenter = MPRemoteCommandCenter.shared()
             
             // build now playing info
-            let nowPlayingInfo = [MPMediaItemPropertyTitle : appName, MPMediaItemPropertyArtist: subTitle]
+            let nowPlayingInfo = [MPMediaItemPropertyTitle : initialTitle, MPMediaItemPropertyArtist: subTitle]
             
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
             

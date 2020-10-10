@@ -62,21 +62,25 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
             PlayerMethods.PLAY_PAUSE.value -> {
                 playOrPause()
+                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PLAY.value -> {
                 logger.info("play service invoked")
                 play()
+                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PAUSE.value -> {
                 logger.info("pause service invoked")
                 pause()
+                forceNotification()
                 result.success(null)
             }
             PlayerMethods.STOP.value -> {
                 logger.info("stop service invoked")
                 stop()
+                forceNotification()
                 result.success(null)
             }
             PlayerMethods.INIT.value -> {
@@ -95,6 +99,10 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 val url = call.argument<String>("streamUrl")!!
                 val playWhenReady = call.argument<String>("playWhenReady")!!
                 setUrl(url, playWhenReady)
+            }
+            PlayerMethods.FORCE_NOTIFICATION.value -> {
+                logger.info("Set focre update notification")
+                forceNotification()
             }
             else -> result.notImplemented()
         }
@@ -165,11 +173,11 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         logger.info("Mapping method call to player item object")
 
         val url = methodCall.argument<String>("streamURL")
-        val appName = methodCall.argument<String>("appName")
+        val initialTitle = methodCall.argument<String>("initialTitle")
         val subTitle = methodCall.argument<String>("subTitle")
         val playWhenReady = methodCall.argument<String>("playWhenReady")
 
-        return PlayerItem(appName!!, subTitle!!, url!!, playWhenReady!!)
+        return PlayerItem(initialTitle!!, subTitle!!, url!!, playWhenReady!!)
     }
 
     /*===========================
@@ -226,12 +234,16 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         coreService.setVolume(volume)
     }
 
+    private fun forceNotification() {
+        coreService.forceNotification()
+    }
+
     /**
      * Build the player meta information for Stream service
      */
     private fun setIntentData(intent: Intent, playerItem: PlayerItem): Intent {
         intent.putExtra("streamUrl", playerItem.streamUrl)
-        intent.putExtra("appName", playerItem.appName)
+        intent.putExtra("initialTitle", playerItem.initialTitle)
         intent.putExtra("subTitle", playerItem.subTitle)
         intent.putExtra("playWhenReady", playerItem.playWhenReady)
         return intent

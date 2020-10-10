@@ -22,10 +22,10 @@ class FlutterRadioPlayer {
   static Stream<String> _isPlayingStream;
   static Stream<String> _metaDataStream;
 
-  Future<void> init(String appName, String subTitle, String streamURL,
+  Future<void> init(String initialTitle, String subTitle, String streamURL,
       String playWhenReady) async {
     return await _channel.invokeMethod("initService", {
-      "appName": appName,
+      "initialTitle": initialTitle,
       "subTitle": subTitle,
       "streamURL": streamURL,
       "playWhenReady": playWhenReady
@@ -65,6 +65,10 @@ class FlutterRadioPlayer {
     });
   }
 
+  Future<void> forceNotification() async {
+    return await _channel.invokeMethod("forceNotification");
+  }
+
   /// Get the player stream.
   Stream<String> get isPlayingStream {
     if (_isPlayingStream == null) {
@@ -79,6 +83,9 @@ class FlutterRadioPlayer {
       _metaDataStream =
           _eventChannelMetaData.receiveBroadcastStream().map<String>((value) => value);
     }
+    _metaDataStream.listen((event) {
+      forceNotification();
+    });
 
     return _metaDataStream;
   }
