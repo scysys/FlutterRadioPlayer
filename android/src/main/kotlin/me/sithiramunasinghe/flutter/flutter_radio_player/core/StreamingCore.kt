@@ -110,6 +110,10 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         playerNotificationManager?.invalidate()
     }
 
+    fun currentSongTitle(): String {
+        return currentSong
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
         logger.info("Firing up service. (onStartCommand)...")

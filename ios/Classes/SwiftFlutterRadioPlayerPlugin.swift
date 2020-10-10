@@ -89,6 +89,9 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin {
                 streamingCore.setUrl(streamURL: streamURL, playWhenReady: playWhenReady)
             }
             result(nil)
+        case "currentSongTitle":
+            let song: String = streamingCore.currentSongTitle()
+            result(song)
         case "forceNotification":
             result(nil)
         default:

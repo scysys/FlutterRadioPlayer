@@ -69,6 +69,10 @@ class FlutterRadioPlayer {
     return await _channel.invokeMethod("forceNotification");
   }
 
+  Future<String> currentSongTitle() async {
+    return await _channel.invokeMethod("currentSongTitle");
+  }
+
   /// Get the player stream.
   Stream<String> get isPlayingStream {
     if (_isPlayingStream == null) {

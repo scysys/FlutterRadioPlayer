@@ -16,6 +16,8 @@ class StreamingCore : NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var playerItemContext = 0
     private var commandCenter: MPRemoteCommandCenter?
     private var playWhenReady: Bool = false
+
+    private var currentSong: String = ""
     
     override init() {
         print("StreamingCore Initializing...")
@@ -54,6 +56,7 @@ class StreamingCore : NSObject, AVPlayerItemMetadataOutputPushDelegate {
         if let item = groups.first?.items.first { // make this an AVMetadata item
             item.value(forKeyPath: "value")
             let song = (item.value(forKeyPath: "value")!) as! String
+            currentSong = song
             pushEvent(typeEvent: "meta_data", eventName: song)
         }
     }
@@ -113,6 +116,10 @@ class StreamingCore : NSObject, AVPlayerItemMetadataOutputPushDelegate {
             self.playWhenReady = false
             pause()
         }
+    }
+
+    func currentSongTitle() -> String {
+        return currentSong
     }
     
     private func pushEvent(typeEvent : String = "status", eventName: String) {

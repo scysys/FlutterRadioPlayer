@@ -99,10 +99,16 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 val url = call.argument<String>("streamUrl")!!
                 val playWhenReady = call.argument<String>("playWhenReady")!!
                 setUrl(url, playWhenReady)
+                result.success(null)
             }
             PlayerMethods.FORCE_NOTIFICATION.value -> {
                 logger.info("Set focre update notification")
                 forceNotification()
+                result.success(null)
+            }
+            PlayerMethods.CURRENT_SONG_TITLE.value {
+                val song = currentSongTitle()
+                result(song)
             }
             else -> result.notImplemented()
         }
@@ -236,6 +242,10 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     private fun forceNotification() {
         coreService.forceNotification()
+    }
+
+    private fun currentSongTitle(): String {
+        return coreService.currentSongTitle()
     }
 
     /**
