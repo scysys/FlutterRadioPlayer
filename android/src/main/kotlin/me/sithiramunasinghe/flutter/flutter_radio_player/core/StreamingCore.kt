@@ -227,7 +227,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         mediaSessionConnector = MediaSessionConnector(mediaSession)
         mediaSessionConnector?.setPlayer(player)
 
-        playerNotificationManager?.setUseStopAction(true)
+        // playerNotificationManager?.setUseStopAction(true)
         playerNotificationManager?.setFastForwardIncrementMs(0)
         playerNotificationManager?.setRewindIncrementMs(0)
         playerNotificationManager?.setUsePlayPauseActions(true)
