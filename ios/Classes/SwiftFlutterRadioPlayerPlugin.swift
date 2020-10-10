@@ -44,6 +44,7 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin {
             } else {
                 _ = streamingCore.play()
             }
+            result(nil)
         case "play":
             print("method called to play from service")
             let status = streamingCore.play()
