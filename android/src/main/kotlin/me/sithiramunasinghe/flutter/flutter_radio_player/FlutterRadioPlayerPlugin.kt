@@ -106,9 +106,9 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 forceNotification()
                 result.success(null)
             }
-            PlayerMethods.CURRENT_SONG_TITLE.value {
+            PlayerMethods.CURRENT_SONG_TITLE.value -> {
                 val song = currentSongTitle()
-                result(song)
+                result.success(song)
             }
             else -> result.notImplemented()
         }
