@@ -284,6 +284,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     }
 
     override fun onMetadata(metadata: Metadata) {
+        logger.info("onMetadata: " + metadata.toString())
+
         currentSong = ""
         for (n in 0 until metadata.length()) {
             when (val md = metadata[n]) {
