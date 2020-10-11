@@ -23,7 +23,9 @@ import com.google.android.exoplayer2.metadata.Metadata
 import com.google.android.exoplayer2.metadata.MetadataOutput
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
+import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
+import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource
 import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
@@ -179,9 +181,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
                 object : PlayerNotificationManager.MediaDescriptionAdapter {
                     override fun getCurrentContentTitle(player: Player): String {
                         if (!currentSong.isEmpty() && isPlaying()) {
-                            // get song artist
-                            val prefixIndex = currentSong.indexOf(" - ")
-                            return currentSong.substring(0, prefixIndex).trim()
+                            return getSongArtist(currentSong)
                         }
                         return initialTitle
                     }
@@ -194,9 +194,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
                     @Nullable
                     override fun getCurrentContentText(player: Player): String? {
                         if (!currentSong.isEmpty() && isPlaying()) {
-                            // get song title
-                            val prefixIndex = currentSong.indexOf(" - ")
-                            return currentSong.substring(prefixIndex + 2, currentSong.length).trim()
+                            return getSongTitle(currentSong)
                         }
                         return "-"
                     }
@@ -315,6 +313,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         val uri = Uri.parse(streamUrl)
 
         return when (val type = Util.inferContentType(uri)) {
+            C.TYPE_DASH -> DashMediaSource.Factory(dataSourceFactory).createMediaSource(uri)
+            C.TYPE_SS -> SsMediaSource.Factory(dataSourceFactory).createMediaSource(uri)
             C.TYPE_HLS -> HlsMediaSource.Factory(dataSourceFactory).createMediaSource(uri)
             C.TYPE_OTHER -> ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(uri)
             else -> {
@@ -331,6 +331,22 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             pushEvent(FLUTTER_RADIO_PLAYER_PAUSED)
             PlaybackStatus.PAUSED
         }
+    }
+
+    private fun getSongArtist(songInfo: String): String {
+        // get song artist
+        val prefixIndex = songInfo.indexOf(" - ")
+        if (prefixIndex == -1)
+            return ""
+        return songInfo.substring(0, prefixIndex).trim()
+    }
+
+    private fun getSongTitle(songInfo: String): String {
+        // get song title
+        val prefixIndex = songInfo.indexOf(" - ")
+        if (prefixIndex == -1)
+            return songInfo
+        return songInfo.substring(prefixIndex + 2, songInfo.length).trim()
     }
 
 }

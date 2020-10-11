@@ -29,7 +29,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> initRadioService() async {
     try {
       await _flutterRadioPlayer.init(
-          "Flutter Radio Example", "Live", "http://syd02.sdn.dhcmedia.com.au/radio/8010/magic876?1599784783", "false");
+          "Flutter Radio Example", "Live", "http://stream.riverfm.com.au:8069/stream.mp3", "false");
     } on PlatformException {
       print("Exception occurred while trying to register the services.");
     }
