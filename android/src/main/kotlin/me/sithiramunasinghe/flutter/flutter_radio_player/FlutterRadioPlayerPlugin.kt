@@ -195,7 +195,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         logger.info("Attempting to initialize service...")
         serviceIntent = setIntentData(serviceIntent, buildPlayerDetailsMeta(methodCall))
         if (isBound) {
-            applicationContext.unbindService(serviceConnection)
             coreService.stop()
         }
         logger.info("Service not bound, binding now....")
