@@ -62,25 +62,25 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
             PlayerMethods.PLAY_PAUSE.value -> {
                 playOrPause()
-                forceNotification()
+//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PLAY.value -> {
                 logger.info("play service invoked")
                 play()
-                forceNotification()
+//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PAUSE.value -> {
                 logger.info("pause service invoked")
                 pause()
-                forceNotification()
+//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.STOP.value -> {
                 logger.info("stop service invoked")
                 stop()
-                forceNotification()
+//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.INIT.value -> {
@@ -103,7 +103,7 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
             PlayerMethods.FORCE_NOTIFICATION.value -> {
                 logger.info("Set focre update notification")
-                forceNotification()
+//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.CURRENT_SONG_TITLE.value -> {
@@ -194,7 +194,7 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private fun init(methodCall: MethodCall) {
         logger.info("Attempting to initialize service...")
         serviceIntent = setIntentData(serviceIntent, buildPlayerDetailsMeta(methodCall))
-        if (isBound) {
+        if (isBound && coreService != null) {
             coreService.stop()
         }
         logger.info("Service not bound, binding now....")
@@ -241,9 +241,9 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         coreService.setVolume(volume)
     }
 
-    private fun forceNotification() {
-        coreService.forceNotification()
-    }
+//    private fun forceNotification() {
+//        coreService.forceNotification()
+//    }
 
     private fun currentSongTitle(): String {
         return coreService.currentSongTitle()
