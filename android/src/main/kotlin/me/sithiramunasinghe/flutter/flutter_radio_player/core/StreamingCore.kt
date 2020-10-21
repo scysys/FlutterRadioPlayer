@@ -39,7 +39,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     private var logger = Logger.getLogger(StreamingCore::javaClass.name)
 
-    private var isBound = false
+//    private var isBound = false
     private val iBinder = LocalBinder()
     private lateinit var playbackStatus: PlaybackStatus
     private lateinit var dataSourceFactory: DefaultDataSourceFactory
@@ -93,7 +93,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         logger.info("stopping audio $player ...")
         player?.stop()
         stopSelf()
-        isBound = false
+//        isBound = false
     }
 
     fun setVolume(volume: Double) {
