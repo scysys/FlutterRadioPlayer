@@ -47,10 +47,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     private var logger = Logger.getLogger(StreamingCore::javaClass.name)
 
     private val iBinder = LocalBinder()
+    private lateinit var initialTitle: String
+    private lateinit var streamUrl: String
     private lateinit var playbackStatus: PlaybackStatus
     private lateinit var dataSourceFactory: DefaultDataSourceFactory
     private lateinit var localBroadcastManager: LocalBroadcastManager
     private lateinit var playerEvents: Player.EventListener
+    private lateinit var player: SimpleExoPlayer
 
     // context
     private val context = this
@@ -58,7 +61,6 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     private val broadcastMetaDataIntent = Intent(broadcastChangedMetaDataName)
 
     // class instances
-    private var player: SimpleExoPlayer? = null
     private var telephonyManager: TelephonyManager? = null
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -77,39 +79,44 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     fun play() {
         logger.info("playing audio $player ...")
+
         requestAudioFocus()
-        player?.playWhenReady = true
+
+        val dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, initialTitle))
+        val audioSource = buildMediaSource(dataSourceFactory, streamUrl)
+
+        player.stop()
+        player.prepare(audioSource)
+        player.playWhenReady = true
     }
 
     fun pause() {
         logger.info("pausing audio...")
         removeAudioFocus()
-        player?.playWhenReady = false
+        player.playWhenReady = false
     }
 
     fun isPlaying(): Boolean {
         val isPlaying = this.playbackStatus == PlaybackStatus.PLAYING
-        logger?.info("is playing status: $isPlaying")
+        logger.info("is playing status: $isPlaying")
         return isPlaying
     }
 
     fun stop() {
         logger.info("stopping audio $player ...")
         removeAudioFocus()
-        player?.stop()
+        player.stop()
         stopSelf()
     }
 
     fun setVolume(volume: Double) {
         logger.info("Changing volume to : $volume")
-        player?.volume = volume.toFloat()
+        player.volume = volume.toFloat()
     }
 
-    fun setUrl(streamUrl: String, playWhenReady: Boolean) {
-        logger.info("ReadyPlay status: $playWhenReady")
-        logger.info("Set stream URL: $streamUrl")
-        player?.prepare(buildMediaSource(dataSourceFactory, streamUrl))
-        player?.playWhenReady = playWhenReady
+    fun setUrl(url: String) {
+        logger.info("Set stream URL: $url")
+        streamUrl = url
     }
 
     fun currentSongTitle(): String {
@@ -139,6 +146,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
         localBroadcastManager = LocalBroadcastManager.getInstance(context)
         logger.info("LocalBroadCastManager Received...")
+
+        playbackStatus = PlaybackStatus.IDLE
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -146,16 +155,10 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         logger.info("Firing up service. (onStartCommand)...")
 
         // get details
-        val initialTitle = intent!!.getStringExtra("initialTitle")
-        val subTitle = intent.getStringExtra("subTitle")
-        val streamUrl = intent.getStringExtra("streamUrl")
-        val playWhenReady = intent.getStringExtra("playWhenReady") == "true"
+        initialTitle = intent!!.getStringExtra("initialTitle")
+        streamUrl = intent.getStringExtra("streamUrl")
 
-        dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, initialTitle))
-
-        val audioSource = buildMediaSource(dataSourceFactory, streamUrl)
-
-        val playerEvents = object : Player.EventListener {
+        playerEvents = object : Player.EventListener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
 
                 playbackStatus = when (playbackState) {
@@ -163,14 +166,14 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
                         pushEvent(FLUTTER_RADIO_PLAYER_LOADING)
                         PlaybackStatus.LOADING
                     }
-                    Player.STATE_IDLE -> {
+                    Player.STATE_ENDED -> {
                         pushEvent(FLUTTER_RADIO_PLAYER_STOPPED)
                         PlaybackStatus.STOPPED
                     }
                     Player.STATE_READY -> {
                         setPlayWhenReady(playWhenReady)
                     }
-                    else -> setPlayWhenReady(playWhenReady)
+                    else -> PlaybackStatus.IDLE
                 }
 
                 logger.info("onPlayerStateChanged: $playbackStatus")
@@ -184,12 +187,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         }
 
         // set exo player configs
-        player?.let {
-            it.addListener(playerEvents)
-            it.addMetadataOutput(this)
-            it.playWhenReady = playWhenReady
-            it.prepare(audioSource)
-        }
+        player.addListener(playerEvents)
+        player.addMetadataOutput(this)
 
         return START_STICKY
     }
@@ -201,8 +200,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     override fun onDestroy() {
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
         stop()
-        player?.removeListener(playerEvents)
-        player?.release()
+        player.removeListener(playerEvents)
+        player.release()
         unregisterReceiver(becomingNoisyReceiver)
 
         super.onDestroy()
@@ -227,24 +226,28 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         when (audioFocus) {
 
             AudioManager.AUDIOFOCUS_GAIN -> {
-                player?.volume = 0.8f
+                player.volume = 0.8f
                 play()
+                logger.info("AudioManager::AUDIOFOCUS_GAIN")
             }
 
             AudioManager.AUDIOFOCUS_LOSS -> {
                 stop()
+                logger.info("AudioManager::AUDIOFOCUS_LOSS")
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 if (isPlaying()) {
-                    stop()
+                    pause()
                 }
+                logger.info("AudioManager::AUDIOFOCUS_LOSS_TRANSIENT")
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 if (isPlaying()) {
-                    player?.volume = 0.1f
+                    player.volume = 0.1f
                 }
+                logger.info("AudioManager::AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK")
             }
         }
     }
