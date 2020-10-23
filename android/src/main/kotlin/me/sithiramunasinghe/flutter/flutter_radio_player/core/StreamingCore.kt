@@ -235,7 +235,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 //        playerNotificationManager?.setPlayer(player)
 //        playerNotificationManager?.setMediaSessionToken(mediaSession.sessionToken)
 
-        playbackStatus = PlaybackStatus.PLAYING
+//        playbackStatus = PlaybackStatus.PLAYING
 
         return START_STICKY
     }
