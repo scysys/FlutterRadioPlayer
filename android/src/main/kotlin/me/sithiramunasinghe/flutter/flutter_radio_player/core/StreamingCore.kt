@@ -1,16 +1,23 @@
 package me.sithiramunasinghe.flutter.flutter_radio_player.core
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Bitmap
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.session.MediaSession
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyManager
 import android.support.v4.media.session.MediaSessionCompat
 import androidx.annotation.Nullable
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -39,11 +46,11 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     private var logger = Logger.getLogger(StreamingCore::javaClass.name)
 
-//    private var isBound = false
     private val iBinder = LocalBinder()
     private lateinit var playbackStatus: PlaybackStatus
     private lateinit var dataSourceFactory: DefaultDataSourceFactory
     private lateinit var localBroadcastManager: LocalBroadcastManager
+    private lateinit var playerEvents: Player.EventListener
 
     // context
     private val context = this
@@ -52,14 +59,9 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     // class instances
     private var player: SimpleExoPlayer? = null
-    private var mediaSessionConnector: MediaSessionConnector? = null
-    private var mediaSession: MediaSession? = null
-//    private var playerNotificationManager: PlayerNotificationManager? = null
-
-    // session keys
-    private val playbackNotificationId = 1602326668
-    private val mediaSessionId = "streaming_audio_player_media_session"
-    private val playbackChannelId = "streaming_audio_player_channel_id"
+    private var telephonyManager: TelephonyManager? = null
+    private var audioManager: AudioManager? = null
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     private var currentSong = ""
 
@@ -75,11 +77,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     fun play() {
         logger.info("playing audio $player ...")
+        requestAudioFocus()
         player?.playWhenReady = true
     }
 
     fun pause() {
         logger.info("pausing audio...")
+        removeAudioFocus()
         player?.playWhenReady = false
     }
 
@@ -91,9 +95,9 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     fun stop() {
         logger.info("stopping audio $player ...")
+        removeAudioFocus()
         player?.stop()
         stopSelf()
-//        isBound = false
     }
 
     fun setVolume(volume: Double) {
@@ -108,29 +112,44 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         player?.playWhenReady = playWhenReady
     }
 
-//     fun forceNotification() {
-//         playerNotificationManager?.invalidate()
-//     }
-
     fun currentSongTitle(): String {
         return currentSong
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+
+        player = SimpleExoPlayer.Builder(context).build()
+
+        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        registerReceiver(becomingNoisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                    .setAudioAttributes(
+                            AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_GAME)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                    .build()
+                    )
+                    .setAcceptsDelayedFocusGain(false)
+                    .setOnAudioFocusChangeListener(context).build()
+        }
+
+        localBroadcastManager = LocalBroadcastManager.getInstance(context)
+        logger.info("LocalBroadCastManager Received...")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
         logger.info("Firing up service. (onStartCommand)...")
 
-        localBroadcastManager = LocalBroadcastManager.getInstance(context)
-
-        logger.info("LocalBroadCastManager Received...")
-
         // get details
         val initialTitle = intent!!.getStringExtra("initialTitle")
         val subTitle = intent.getStringExtra("subTitle")
         val streamUrl = intent.getStringExtra("streamUrl")
         val playWhenReady = intent.getStringExtra("playWhenReady") == "true"
-
-        player = SimpleExoPlayer.Builder(context).build()
 
         dataSourceFactory = DefaultDataSourceFactory(context, Util.getUserAgent(context, initialTitle))
 
@@ -172,71 +191,6 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             it.prepare(audioSource)
         }
 
-//        playerNotificationManager = PlayerNotificationManager.createWithNotificationChannel(
-//                context,
-//                playbackChannelId,
-//                R.string.channel_name,
-//                R.string.channel_description,
-//                playbackNotificationId,
-//                object : PlayerNotificationManager.MediaDescriptionAdapter {
-//                    override fun getCurrentContentTitle(player: Player): String {
-//                        if (!currentSong.isEmpty() && isPlaying()) {
-//                            return getSongArtist(currentSong)
-//                        }
-//                        return initialTitle
-//                    }
-//
-//                    @Nullable
-//                    override fun createCurrentContentIntent(player: Player): PendingIntent {
-//                        return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-//                    }
-//
-//                    @Nullable
-//                    override fun getCurrentContentText(player: Player): String? {
-//                        if (!currentSong.isEmpty() && isPlaying()) {
-//                            return getSongTitle(currentSong)
-//                        }
-//                        return "-"
-//                    }
-//
-//                    @Nullable
-//                    override fun getCurrentLargeIcon(player: Player, callback: PlayerNotificationManager.BitmapCallback): Bitmap? {
-//                        return null // OS will use the application icon.
-//                    }
-//                },
-//                object : PlayerNotificationManager.NotificationListener {
-//                    override fun onNotificationCancelled(notificationId: Int, dismissedByUser: Boolean) {
-//                        logger.info("Notification Cancelled. Stopping player...")
-//                        stop()
-//                    }
-//
-//                    override fun onNotificationPosted(notificationId: Int, notification: Notification, ongoing: Boolean) {
-//                        logger.info("Attaching player as a foreground notification...")
-//                        startForeground(notificationId, notification)
-//                    }
-//                }
-//        )
-//
-        logger.info("Building Media Session")
-
-        val mediaSession = MediaSessionCompat(context, mediaSessionId)
-        mediaSession.isActive = true
-
-        mediaSessionConnector = MediaSessionConnector(mediaSession)
-        mediaSessionConnector?.setPlayer(player)
-
-//         playerNotificationManager?.setUseStopAction(true)
-//        playerNotificationManager?.setFastForwardIncrementMs(0)
-//        playerNotificationManager?.setRewindIncrementMs(0)
-//        playerNotificationManager?.setUsePlayPauseActions(true)
-//        playerNotificationManager?.setUseNavigationActions(false)
-//        playerNotificationManager?.setUseNavigationActionsInCompactView(false)
-//
-//        playerNotificationManager?.setPlayer(player)
-//        playerNotificationManager?.setMediaSessionToken(mediaSession.sessionToken)
-
-//        playbackStatus = PlaybackStatus.PLAYING
-
         return START_STICKY
     }
 
@@ -245,16 +199,28 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     }
 
     override fun onDestroy() {
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mediaSession?.release()
-        }
-
-        mediaSessionConnector?.setPlayer(null)
-        // playerNotificationManager?.setPlayer(null)
+        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        stop()
+        player?.removeListener(playerEvents)
         player?.release()
+        unregisterReceiver(becomingNoisyReceiver)
 
         super.onDestroy()
+    }
+
+    private val becomingNoisyReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            pause()
+        }
+    }
+
+    private val phoneStateListener: PhoneStateListener = object : PhoneStateListener() {
+        override fun onCallStateChanged(state: Int, incomingNumber: String) {
+            if (state == TelephonyManager.CALL_STATE_OFFHOOK
+                    || state == TelephonyManager.CALL_STATE_RINGING) {
+                pause()
+            }
+        }
     }
 
     override fun onAudioFocusChange(audioFocus: Int) {
@@ -297,6 +263,30 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             }
         }
         localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", currentSong))
+    }
+
+    private fun requestAudioFocus() {
+
+        val mAudioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let {
+                mAudioManager.requestAudioFocus(it)
+            }
+        } else {
+            mAudioManager.requestAudioFocus(context,
+                    AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN)
+        }
+    }
+
+    private fun removeAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mAudioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioFocusRequest?.let {
+                mAudioManager.abandonAudioFocusRequest(it)
+            }
+        }
     }
 
     /**

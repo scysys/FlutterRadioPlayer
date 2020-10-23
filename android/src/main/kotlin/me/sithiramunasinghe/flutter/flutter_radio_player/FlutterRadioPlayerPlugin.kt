@@ -62,25 +62,21 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
             PlayerMethods.PLAY_PAUSE.value -> {
                 playOrPause()
-//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PLAY.value -> {
                 logger.info("play service invoked")
                 play()
-//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.PAUSE.value -> {
                 logger.info("pause service invoked")
                 pause()
-//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.STOP.value -> {
                 logger.info("stop service invoked")
                 stop()
-//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.INIT.value -> {
@@ -103,7 +99,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
             }
             PlayerMethods.FORCE_NOTIFICATION.value -> {
                 logger.info("Set focre update notification")
-//                forceNotification()
                 result.success(null)
             }
             PlayerMethods.CURRENT_SONG_TITLE.value -> {
@@ -194,9 +189,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private fun init(methodCall: MethodCall) {
         logger.info("Attempting to initialize service...")
         serviceIntent = setIntentData(serviceIntent, buildPlayerDetailsMeta(methodCall))
-//        if (isBound && coreService != null) {
-//            coreService.stop()
-//        }
         logger.info("Service not bound, binding now....")
         applicationContext.bindService(serviceIntent, serviceConnection, Context.BIND_IMPORTANT)
         applicationContext.startService(serviceIntent)
@@ -226,7 +218,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     private fun stop() {
         logger.info("Attempting to stop music and unbind services....")
-//        isBound = false
         applicationContext.unbindService(serviceConnection)
         coreService.stop()
     }
@@ -240,10 +231,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
         logger.info("Attempting to change volume...")
         coreService.setVolume(volume)
     }
-
-//    private fun forceNotification() {
-//        coreService.forceNotification()
-//    }
 
     private fun currentSongTitle(): String {
         return coreService.currentSongTitle()
@@ -265,14 +252,12 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
      */
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceDisconnected(name: ComponentName?) {
-//            isBound = false
-            // coreService = null
+
         }
 
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             val localBinder = binder as StreamingCore.LocalBinder
             coreService = localBinder.service
-//            isBound = true
             logger.info("Service Connection Established...")
             logger.info("Service bounded...")
         }
