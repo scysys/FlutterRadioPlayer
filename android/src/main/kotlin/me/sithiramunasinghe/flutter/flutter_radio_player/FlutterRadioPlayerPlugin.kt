@@ -238,6 +238,7 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
      * Build the player meta information for Stream service
      */
     private fun setIntentData(intent: Intent, playerItem: PlayerItem): Intent {
+        intent.putExtra("packageName", applicationContext.packageName)
         intent.putExtra("streamUrl", playerItem.streamUrl)
         intent.putExtra("initialTitle", playerItem.initialTitle)
         intent.putExtra("subTitle", playerItem.subTitle)

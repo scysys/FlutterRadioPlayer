@@ -3,29 +3,28 @@ package me.sithiramunasinghe.flutter.flutter_radio_player.core
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.media.session.MediaSession
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
-import android.support.v4.media.session.MediaSessionCompat
-import androidx.annotation.Nullable
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.metadata.Metadata
 import com.google.android.exoplayer2.metadata.MetadataOutput
 import com.google.android.exoplayer2.source.MediaSource
@@ -33,12 +32,10 @@ import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource
-//import com.google.android.exoplayer2.ui.PlayerNotificationManager
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import me.sithiramunasinghe.flutter.flutter_radio_player.FlutterRadioPlayerPlugin.Companion.broadcastActionName
 import me.sithiramunasinghe.flutter.flutter_radio_player.FlutterRadioPlayerPlugin.Companion.broadcastChangedMetaDataName
-import me.sithiramunasinghe.flutter.flutter_radio_player.R
 import me.sithiramunasinghe.flutter.flutter_radio_player.core.enums.PlaybackStatus
 import java.util.logging.Logger
 
@@ -48,9 +45,9 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     private val iBinder = LocalBinder()
     private lateinit var initialTitle: String
+    private lateinit var subTitle: String
     private lateinit var streamUrl: String
     private lateinit var playbackStatus: PlaybackStatus
-    private lateinit var dataSourceFactory: DefaultDataSourceFactory
     private lateinit var localBroadcastManager: LocalBroadcastManager
     private lateinit var playerEvents: Player.EventListener
     private lateinit var player: SimpleExoPlayer
@@ -64,7 +61,9 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     private var telephonyManager: TelephonyManager? = null
     private var audioManager: AudioManager? = null
     private var audioFocusRequest: AudioFocusRequest? = null
+    private var notification: Notification? = null
 
+    private var packageIntentName = ""
     private var currentSong = ""
 
     inner class LocalBinder : Binder() {
@@ -156,7 +155,9 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
         // get details
         initialTitle = intent!!.getStringExtra("initialTitle")
-        streamUrl = intent.getStringExtra("streamUrl")
+        subTitle = intent!!.getStringExtra("subTitle")
+        streamUrl = intent!!.getStringExtra("streamUrl")
+        packageIntentName = intent!!.getStringExtra("packageName")
 
         playerEvents = object : Player.EventListener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
@@ -190,6 +191,12 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         player.addListener(playerEvents)
         player.addMetadataOutput(this)
 
+        createNotificationChannel()
+        notification = buildNotification(
+            initialTitle, subTitle, packageIntentName
+        )
+        startForeground(Companion.NOTIFICATION_ID, notification)
+
         return START_STICKY
     }
 
@@ -198,6 +205,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     }
 
     override fun onDestroy() {
+        NotificationManagerCompat.from(this).cancel(Companion.NOTIFICATION_ID)
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
         stop()
         player.removeListener(playerEvents)
@@ -265,6 +273,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
                 }
             }
         }
+
+        notification = buildNotification(
+            getSongArtist(currentSong), getSongTitle(currentSong), packageIntentName
+        )?.apply {
+            notify(this)
+        }
+
         localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", currentSong))
     }
 
@@ -328,6 +343,61 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         }
     }
 
+    /**
+     * Build notification
+     */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val serviceChannel = NotificationChannel(
+                    Companion.CHANNEL_ID,
+                    Companion.CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_LOW
+            )
+            val notificationManager = getSystemService(NotificationManager::class.java)
+            notificationManager?.createNotificationChannel(serviceChannel)
+        }
+    }
+
+    private fun buildNotification(
+            title: String,
+            description: String,
+            packageIntentName: String): Notification?
+    {
+        logger.info("packageIntentName: " + packageIntentName)
+
+        val notificationIntent = Intent(this, this::class.java)
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+
+        var tapAction: PendingIntent? = null
+        if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            launchIntent?.let {
+                tapAction = PendingIntent.getService(this, Companion.START_ACTIVITY_REQUEST_CODE, launchIntent, 0)
+            }
+        }
+
+        val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setContentIntent(pendingIntent)
+                .setWhen(System.currentTimeMillis())
+                .setColorized(true)
+                .setContentText(description)
+                .setContentTitle(title)
+                .setAutoCancel(true)
+                .setSmallIcon(android.R.drawable.stat_sys_headset)
+                .setContentIntent(tapAction)
+        return notificationBuilder.build()
+    }
+
+    private fun notify(notification: Notification) {
+        val notificationManager = NotificationManagerCompat.from(this)
+        notificationManager.notify(Companion.NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * Split metadata
+     */
     private fun getSongArtist(songInfo: String): String {
         // get song artist
         val prefixIndex = songInfo.indexOf(" - ")
@@ -342,6 +412,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         if (prefixIndex == -1)
             return songInfo
         return songInfo.substring(prefixIndex + 2, songInfo.length).trim()
+    }
+
+    companion object {
+        const val CHANNEL_ID = "PLAYER_CHANNEL_ID"
+        const val CHANNEL_NAME = "PLAYER_NOTIFICATION_CHANNEL"
+        const val NOTIFICATION_ID = 1602246405
+        const val START_ACTIVITY_REQUEST_CODE = 5
     }
 
 }
