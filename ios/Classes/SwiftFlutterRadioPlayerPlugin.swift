@@ -93,8 +93,6 @@ public class SwiftFlutterRadioPlayerPlugin: NSObject, FlutterPlugin {
         case "currentSongTitle":
             let song: String = streamingCore.currentSongTitle()
             result(song)
-        case "forceNotification":
-            result(nil)
         default:
             result(nil)
         }

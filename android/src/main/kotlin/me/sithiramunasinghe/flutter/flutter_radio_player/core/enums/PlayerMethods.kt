@@ -9,6 +9,5 @@ enum class PlayerMethods(val value: String) {
     SET_URL("setUrl"),
     IS_PLAYING("isPlaying"),
     SET_VOLUME("setVolume"),
-    FORCE_NOTIFICATION("forceNotification"),
     CURRENT_SONG_TITLE("currentSongTitle")
 }

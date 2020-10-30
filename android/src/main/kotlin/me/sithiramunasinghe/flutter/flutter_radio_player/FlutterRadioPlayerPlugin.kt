@@ -96,10 +96,6 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
                 setUrl(url)
                 result.success(null)
             }
-            PlayerMethods.FORCE_NOTIFICATION.value -> {
-                logger.info("Set focre update notification")
-                result.success(null)
-            }
             PlayerMethods.CURRENT_SONG_TITLE.value -> {
                 val song = currentSongTitle()
                 result.success(song)

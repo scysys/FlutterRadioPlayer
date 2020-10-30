@@ -1,12 +1,8 @@
 package me.sithiramunasinghe.flutter.flutter_radio_player.core
 
+import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
-import android.app.Service
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioAttributes
@@ -205,14 +201,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     }
 
     override fun onDestroy() {
-        NotificationManagerCompat.from(this).cancel(Companion.NOTIFICATION_ID)
-        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-        stop()
-        player.removeListener(playerEvents)
-        player.release()
-        unregisterReceiver(becomingNoisyReceiver)
-
+        kill()
         super.onDestroy()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        kill()
+        super.onTaskRemoved(rootIntent)
     }
 
     private val becomingNoisyReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -236,32 +231,32 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             AudioManager.AUDIOFOCUS_GAIN -> {
                 player.volume = 0.8f
                 play()
-                logger.info("AudioManager::AUDIOFOCUS_GAIN")
+                logger.info("AudioManager::AUDIO_FOCUS_GAIN")
             }
 
             AudioManager.AUDIOFOCUS_LOSS -> {
                 stop()
-                logger.info("AudioManager::AUDIOFOCUS_LOSS")
+                logger.info("AudioManager::AUDIO_FOCUS_LOSS")
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                 if (isPlaying()) {
                     pause()
                 }
-                logger.info("AudioManager::AUDIOFOCUS_LOSS_TRANSIENT")
+                logger.info("AudioManager::AUDIO_FOCUS_LOSS_TRANSIENT")
             }
 
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                 if (isPlaying()) {
                     player.volume = 0.1f
                 }
-                logger.info("AudioManager::AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK")
+                logger.info("AudioManager::AUDIO_FOCUS_LOSS_TRANSIENT_CAN_DUCK")
             }
         }
     }
 
     override fun onMetadata(metadata: Metadata) {
-        logger.info("onMetadata: " + metadata.toString())
+        logger.info("onMetadata: $metadata")
 
         currentSong = ""
         for (n in 0 until metadata.length()) {
@@ -283,6 +278,22 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", currentSong))
     }
 
+    /**
+     * Stop service
+     */
+    private fun kill() {
+        telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        player.stop()
+        player.removeListener(playerEvents)
+        player.release()
+        removeAudioFocus()
+        unregisterReceiver(becomingNoisyReceiver)
+        stopForeground(true)
+    }
+
+    /**
+     * Handle audio focus
+     */
     private fun requestAudioFocus() {
 
         val mAudioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -363,30 +374,24 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             description: String,
             packageIntentName: String): Notification?
     {
-        logger.info("packageIntentName: " + packageIntentName)
+        var notificationIntent: Intent? = null
 
-        val notificationIntent = Intent(this, this::class.java)
-        val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-
-        var tapAction: PendingIntent? = null
         if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            launchIntent?.let {
-                tapAction = PendingIntent.getService(this, Companion.START_ACTIVITY_REQUEST_CODE, launchIntent, 0)
-            }
+            notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
+            notificationIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
         val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setContentIntent(pendingIntent)
                 .setWhen(System.currentTimeMillis())
                 .setColorized(true)
                 .setContentText(description)
                 .setContentTitle(title)
                 .setAutoCancel(true)
                 .setSmallIcon(android.R.drawable.stat_sys_headset)
-                .setContentIntent(tapAction)
+                .setContentIntent(pendingIntent)
         return notificationBuilder.build()
     }
 
@@ -416,9 +421,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
     companion object {
         const val CHANNEL_ID = "PLAYER_CHANNEL_ID"
-        const val CHANNEL_NAME = "PLAYER_NOTIFICATION_CHANNEL"
+        const val CHANNEL_NAME = "RADIO_STREAMING_SERVICE"
         const val NOTIFICATION_ID = 1602246405
-        const val START_ACTIVITY_REQUEST_CODE = 5
     }
 
 }

@@ -65,10 +65,6 @@ class FlutterRadioPlayer {
     });
   }
 
-  Future<void> forceNotification() async {
-    return await _channel.invokeMethod("forceNotification");
-  }
-
   Future<String> currentSongTitle() async {
     return await _channel.invokeMethod("currentSongTitle");
   }
@@ -87,9 +83,6 @@ class FlutterRadioPlayer {
       _metaDataStream =
           _eventChannelMetaData.receiveBroadcastStream().map<String>((value) => value);
     }
-    _metaDataStream.listen((event) {
-      forceNotification();
-    });
 
     return _metaDataStream;
   }
