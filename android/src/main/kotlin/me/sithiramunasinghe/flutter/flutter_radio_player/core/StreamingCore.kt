@@ -45,7 +45,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
     private lateinit var streamUrl: String
     private lateinit var playbackStatus: PlaybackStatus
     private lateinit var localBroadcastManager: LocalBroadcastManager
-    private lateinit var playerEvents: Player.EventListener
+    private var playerEvents: Player.EventListener? = null
     private lateinit var player: SimpleExoPlayer
 
     // context
@@ -118,9 +118,18 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         return currentSong
     }
 
-    override fun onCreate() {
-        super.onCreate()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
+        logger.info("Firing up service. (onStartCommand)...")
+
+        // get details
+        initialTitle = intent!!.getStringExtra("initialTitle")
+        subTitle = intent!!.getStringExtra("subTitle")
+        streamUrl = intent!!.getStringExtra("streamUrl")
+        packageIntentName = intent!!.getStringExtra("packageName")
+
+        // init objects
+        playbackStatus = PlaybackStatus.IDLE
         player = SimpleExoPlayer.Builder(context).build()
 
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
@@ -141,19 +150,6 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
 
         localBroadcastManager = LocalBroadcastManager.getInstance(context)
         logger.info("LocalBroadCastManager Received...")
-
-        playbackStatus = PlaybackStatus.IDLE
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-
-        logger.info("Firing up service. (onStartCommand)...")
-
-        // get details
-        initialTitle = intent!!.getStringExtra("initialTitle")
-        subTitle = intent!!.getStringExtra("subTitle")
-        streamUrl = intent!!.getStringExtra("streamUrl")
-        packageIntentName = intent!!.getStringExtra("packageName")
 
         playerEvents = object : Player.EventListener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
@@ -184,7 +180,7 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         }
 
         // set exo player configs
-        player.addListener(playerEvents)
+        player.addListener(playerEvents!!)
         player.addMetadataOutput(this)
 
         createNotificationChannel()
@@ -283,9 +279,11 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
      */
     private fun kill() {
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-        player.stop()
-        player.removeListener(playerEvents)
-        player.release()
+        player?.stop()
+        if (playerEvents != null) {
+            player?.removeListener(playerEvents!!)
+        }
+        player?.release()
         removeAudioFocus()
         unregisterReceiver(becomingNoisyReceiver)
         stopForeground(true)
