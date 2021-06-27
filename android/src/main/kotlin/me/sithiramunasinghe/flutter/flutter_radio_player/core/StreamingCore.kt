@@ -285,7 +285,15 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
         }
         player?.release()
         removeAudioFocus()
-        unregisterReceiver(becomingNoisyReceiver)
+        try {
+            if (becomingNoisyReceiver != null) {
+                unregisterReceiver(becomingNoisyReceiver)
+            }
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace()
+        } finally {
+            becomingNoisyReceiver = null
+        }
         stopForeground(true)
     }
 
