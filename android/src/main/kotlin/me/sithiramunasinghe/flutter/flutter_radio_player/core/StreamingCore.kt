@@ -291,10 +291,8 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
             if (becomingNoisyReceiver != null) {
                 unregisterReceiver(becomingNoisyReceiver)
             }
-        } catch (IllegalArgumentException e) {
+        } catch (e: IllegalArgumentException) {
             e.printStackTrace()
-        } finally {
-            becomingNoisyReceiver = null
         }
         stopForeground(true)
     }
