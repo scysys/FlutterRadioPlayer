@@ -279,11 +279,13 @@ class StreamingCore : Service(), AudioManager.OnAudioFocusChangeListener, Metada
      */
     private fun kill() {
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
-        player?.stop()
-        if (playerEvents != null) {
-            player?.removeListener(playerEvents!!)
+        if (player != null) {
+            player?.stop()
+            if (playerEvents != null) {
+                player?.removeListener(playerEvents!!)
+            }
+            player?.release()
         }
-        player?.release()
         removeAudioFocus()
         try {
             if (becomingNoisyReceiver != null) {
