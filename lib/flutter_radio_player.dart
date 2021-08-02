@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 
 class FlutterRadioPlayer {
   static const MethodChannel _channel =
-  const MethodChannel('flutter_radio_player');
+      const MethodChannel('flutter_radio_player');
 
   static const EventChannel _eventChannel =
-  const EventChannel("flutter_radio_player_stream");
+      const EventChannel("flutter_radio_player_stream");
 
   static const EventChannel _eventChannelMetaData =
-  const EventChannel("flutter_radio_player_meta_stream");
+      const EventChannel("flutter_radio_player_meta_stream");
 
   // constants to support event channel
   static const flutter_radio_stopped = "flutter_radio_stopped";
@@ -23,12 +23,12 @@ class FlutterRadioPlayer {
   static Stream<String> _metaDataStream;
 
   Future<void> init(String initialTitle, String subTitle, String streamURL,
-      String playWhenReady) async {
+      bool playWhenReady) async {
     return await _channel.invokeMethod("initService", {
       "initialTitle": initialTitle,
       "subTitle": subTitle,
       "streamURL": streamURL,
-      "playWhenReady": playWhenReady
+      "playWhenReady": playWhenReady ? "true" : "false"
     });
   }
 
@@ -59,10 +59,8 @@ class FlutterRadioPlayer {
   }
 
   Future<void> setUrl(String streamUrl, String playWhenReady) async {
-    await _channel.invokeMethod("setUrl", {
-      "playWhenReady": playWhenReady,
-      "streamUrl": streamUrl
-    });
+    await _channel.invokeMethod(
+        "setUrl", {"playWhenReady": playWhenReady, "streamUrl": streamUrl});
   }
 
   Future<String> currentSongTitle() async {
@@ -80,8 +78,9 @@ class FlutterRadioPlayer {
 
   Stream<String> get metaDataStream {
     if (_metaDataStream == null) {
-      _metaDataStream =
-          _eventChannelMetaData.receiveBroadcastStream().map<String>((value) => value);
+      _metaDataStream = _eventChannelMetaData
+          .receiveBroadcastStream()
+          .map<String>((value) => value);
     }
 
     return _metaDataStream;

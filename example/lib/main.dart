@@ -28,8 +28,8 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> initRadioService() async {
     try {
-      await _flutterRadioPlayer.init(
-          "Flutter Radio Example", "Live", "http://162.213.197.50:8069/stream.mp3", "false");
+      await _flutterRadioPlayer.init("Flutter Radio Example", "Live",
+          "http://162.213.197.50:8069/stream.mp3", false);
     } on PlatformException {
       print("Exception occurred while trying to register the services.");
     }
@@ -54,7 +54,7 @@ class _MyAppState extends State<MyApp> {
                     print("object data: " + returnData);
                     switch (returnData) {
                       case FlutterRadioPlayer.flutter_radio_stopped:
-                        return RaisedButton(
+                        return ElevatedButton(
                             child: Text("Start listening now"),
                             onPressed: () async {
                               await initRadioService();
@@ -63,7 +63,7 @@ class _MyAppState extends State<MyApp> {
                       case FlutterRadioPlayer.flutter_radio_loading:
                         return Text("Loading stream...");
                       case FlutterRadioPlayer.flutter_radio_error:
-                        return RaisedButton(
+                        return ElevatedButton(
                             child: Text("Retry ?"),
                             onPressed: () async {
                               await initRadioService();
@@ -113,9 +113,12 @@ class _MyAppState extends State<MyApp> {
                   builder: (context, snapshot) {
                     return Text(snapshot.data);
                   }),
-              RaisedButton(child: Text("Change URL"), onPressed: () async {
-                _flutterRadioPlayer.setUrl("http://209.133.216.3:7018/;stream.mp3", "false");
-              })
+              RaisedButton(
+                  child: Text("Change URL"),
+                  onPressed: () async {
+                    _flutterRadioPlayer.setUrl(
+                        "http://209.133.216.3:7018/;stream.mp3", "false");
+                  })
             ],
           ),
         ),
