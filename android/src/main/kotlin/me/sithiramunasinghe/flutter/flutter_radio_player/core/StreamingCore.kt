@@ -53,7 +53,7 @@ class StreamingCore : Service(), MetadataOutput {
     // class instances
     private var telephonyManager: TelephonyManager? = null
     private var audioManager: AudioManager? = null
-    private var notification: Notification? = null
+    private var playerManager: PlayerNotificationManager? = null
 
     private var packageIntentName = ""
     private var currentSong = ""
@@ -81,7 +81,9 @@ class StreamingCore : Service(), MetadataOutput {
             player.stop()
             player.setMediaSource(audioSource)
             player.prepare()
+            player.setForegroundMode(true)
             player.playWhenReady = true
+            player.play()
         }
     }
 
@@ -130,9 +132,9 @@ class StreamingCore : Service(), MetadataOutput {
 
         // get details
         initialTitle = intent!!.getStringExtra("initialTitle")
-        subTitle = intent!!.getStringExtra("subTitle")
-        streamUrl = intent!!.getStringExtra("streamUrl")
-        packageIntentName = intent!!.getStringExtra("packageName")
+        subTitle = intent.getStringExtra("subTitle")
+        streamUrl = intent.getStringExtra("streamUrl")
+        packageIntentName = intent.getStringExtra("packageName")
 
         // init objects
         playbackStatus = PlaybackStatus.IDLE
@@ -183,15 +185,11 @@ class StreamingCore : Service(), MetadataOutput {
 
         createNotificationChannel()
         showNotification(initialTitle, subTitle, packageIntentName)
-//        notification = buildNotification(
-//            initialTitle, subTitle, packageIntentName
-//        )
-//        startForeground(Companion.NOTIFICATION_ID, notification)
 
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder {
         return iBinder
     }
 
@@ -235,12 +233,6 @@ class StreamingCore : Service(), MetadataOutput {
         }
 
         showNotification(getSongArtist(currentSong), getSongTitle(currentSong), packageIntentName)
-//        notification = buildNotification(
-//            getSongArtist(currentSong), getSongTitle(currentSong), packageIntentName
-//        )?.apply {
-//            notify(this)
-//        }
-
         localBroadcastManager.sendBroadcast(broadcastMetaDataIntent.putExtra("meta_data", currentSong))
     }
 
@@ -249,6 +241,8 @@ class StreamingCore : Service(), MetadataOutput {
      */
     private fun kill() {
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
+        playerManager?.setPlayer(null)
+
         if (player != null) {
             player?.stop()
             if (playerEvents != null) {
@@ -327,7 +321,7 @@ class StreamingCore : Service(), MetadataOutput {
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
-        val playerManager = PlayerNotificationManager.createWithNotificationChannel(
+        playerManager = PlayerNotificationManager.createWithNotificationChannel(
             this,
             "Channel_id",
             me.sithiramunasinghe.flutter.flutter_radio_player.R.string.channel_name,
@@ -342,7 +336,7 @@ class StreamingCore : Service(), MetadataOutput {
                     return pendingIntent
                 }
 
-                override fun getCurrentContentText(player: Player): CharSequence? {
+                override fun getCurrentContentText(player: Player): CharSequence {
                     return description
                 }
 
@@ -352,42 +346,56 @@ class StreamingCore : Service(), MetadataOutput {
                 ): Bitmap? {
                     return null
                 }
+            },
+            object : PlayerNotificationManager.NotificationListener {
+                override fun onNotificationPosted(
+                    notificationId: Int,
+                    notification: Notification,
+                    ongoing: Boolean
+                ) {
+                    startForeground(Companion.NOTIFICATION_ID, notification)
+                }
 
+                override fun onNotificationCancelled(
+                    notificationId: Int,
+                    dismissedByUser: Boolean
+                ) {
+                    kill()
+                }
             }
-        )
-        playerManager.setPlayer(player)
-    }
-
-    private fun buildNotification(
-            title: String,
-            description: String,
-            packageIntentName: String): Notification?
-    {
-        var notificationIntent: Intent? = null
-
-        if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
-            notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
-            notificationIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        ).apply {
+            setUseStopAction(false)
+            setUseNavigationActionsInCompactView(false)
+            setUseNavigationActions(false)
+            setPlayer(player)
         }
-        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-        val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
-                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setWhen(System.currentTimeMillis())
-                .setStyle(androidx.media.app.NotificationCompat.MediaStyle())
-                .setColorized(true)
-                .setContentText(description)
-                .setContentTitle(title)
-                .setAutoCancel(true)
-                .setSmallIcon(android.R.drawable.stat_sys_headset)
-                .setContentIntent(pendingIntent)
-        return notificationBuilder.build()
     }
 
-    private fun notify(notification: Notification) {
-        val notificationManager = NotificationManagerCompat.from(this)
-        notificationManager.notify(Companion.NOTIFICATION_ID, notification)
-    }
+//    private fun buildNotification(
+//            title: String,
+//            description: String,
+//            packageIntentName: String): Notification?
+//    {
+//        var notificationIntent: Intent? = null
+//
+//        if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
+//            notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
+//            notificationIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+//        }
+//        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+//        val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
+//                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+//                .setPriority(NotificationCompat.PRIORITY_LOW)
+//                .setWhen(System.currentTimeMillis())
+//                .setStyle(androidx.media.app.NotificationCompat.MediaStyle())
+//                .setColorized(true)
+//                .setContentText(description)
+//                .setContentTitle(title)
+//                .setAutoCancel(true)
+//                .setSmallIcon(android.R.drawable.stat_sys_headset)
+//                .setContentIntent(pendingIntent)
+//        return notificationBuilder.build()
+//    }
 
     /**
      * Split metadata
