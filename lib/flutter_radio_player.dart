@@ -19,8 +19,8 @@ class FlutterRadioPlayer {
   static const flutter_radio_error = "flutter_radio_error";
   static const flutter_radio_loading = "flutter_radio_loading";
 
-  static Stream<String> _isPlayingStream;
-  static Stream<String> _metaDataStream;
+  static Stream<String>? _isPlayingStream;
+  static Stream<String>? _metaDataStream;
 
   Future<void> init(String initialTitle, String subTitle, String streamURL,
       bool playWhenReady) async {
@@ -68,7 +68,7 @@ class FlutterRadioPlayer {
   }
 
   /// Get the player stream.
-  Stream<String> get isPlayingStream {
+  Stream<String>? get isPlayingStream {
     if (_isPlayingStream == null) {
       _isPlayingStream =
           _eventChannel.receiveBroadcastStream().map<String>((value) => value);
@@ -76,7 +76,7 @@ class FlutterRadioPlayer {
     return _isPlayingStream;
   }
 
-  Stream<String> get metaDataStream {
+  Stream<String>? get metaDataStream {
     if (_metaDataStream == null) {
       _metaDataStream = _eventChannelMetaData
           .receiveBroadcastStream()
