@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_radio_player/flutter_radio_player.dart';
@@ -50,7 +49,7 @@ class _MyAppState extends State<MyApp> {
                   initialData: widget.playerState,
                   builder:
                       (BuildContext context, AsyncSnapshot<String> snapshot) {
-                    String returnData = snapshot.data;
+                    String returnData = snapshot.data ?? "";
                     print("object data: " + returnData);
                     switch (returnData) {
                       case FlutterRadioPlayer.flutter_radio_stopped:
@@ -111,9 +110,9 @@ class _MyAppState extends State<MyApp> {
                   initialData: "",
                   stream: _flutterRadioPlayer.metaDataStream,
                   builder: (context, snapshot) {
-                    return Text(snapshot.data);
+                    return Text(snapshot.data ?? "");
                   }),
-              RaisedButton(
+              ElevatedButton(
                   child: Text("Change URL"),
                   onPressed: () async {
                     _flutterRadioPlayer.setUrl(
