@@ -13,9 +13,8 @@ import android.os.Build
 import android.os.IBinder
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.localbroadcastmanager.content.LocalBroadcastManager.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.metadata.Metadata
 import com.google.android.exoplayer2.metadata.MetadataOutput
@@ -32,6 +31,7 @@ import me.sithiramunasinghe.flutter.flutter_radio_player.FlutterRadioPlayerPlugi
 import me.sithiramunasinghe.flutter.flutter_radio_player.core.enums.PlaybackStatus
 import java.util.logging.Logger
 
+
 class StreamingCore : Service(), MetadataOutput {
 
     private var logger = Logger.getLogger(StreamingCore::javaClass.name)
@@ -42,7 +42,7 @@ class StreamingCore : Service(), MetadataOutput {
     private lateinit var streamUrl: String
     private lateinit var playbackStatus: PlaybackStatus
     private lateinit var localBroadcastManager: LocalBroadcastManager
-    private var playerEvents: Player.EventListener? = null
+    private var playerEvents: Player.Listener? = null
     private lateinit var player: SimpleExoPlayer
 
     // context
@@ -113,7 +113,8 @@ class StreamingCore : Service(), MetadataOutput {
     fun setUrl(url: String) {
         logger.info("Set stream URL: $url")
         if (isPlaying()) {
-            player.stop(true)
+            player.stop()
+            player.clearMediaItems()
             player.setMediaItem(MediaItem.fromUri(url))
             player.prepare()
             player.playWhenReady = true
@@ -145,10 +146,10 @@ class StreamingCore : Service(), MetadataOutput {
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         registerReceiver(becomingNoisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
 
-        localBroadcastManager = LocalBroadcastManager.getInstance(context)
+        localBroadcastManager = getInstance(context)
         logger.info("LocalBroadCastManager Received...")
 
-        playerEvents = object : Player.EventListener {
+        playerEvents = object : Player.Listener {
             override fun onPlayerStateChanged(playWhenReady: Boolean, playbackState: Int) {
 
                 playbackStatus = when (playbackState) {
@@ -243,17 +244,13 @@ class StreamingCore : Service(), MetadataOutput {
         telephonyManager?.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
         playerManager?.setPlayer(null)
 
-        if (player != null) {
-            player?.stop()
-            if (playerEvents != null) {
-                player?.removeListener(playerEvents!!)
-            }
-            player?.release()
+        player.stop()
+        if (playerEvents != null) {
+            player.removeListener(playerEvents!!)
         }
+        player.release()
         try {
-            if (becomingNoisyReceiver != null) {
-                unregisterReceiver(becomingNoisyReceiver)
-            }
+            unregisterReceiver(becomingNoisyReceiver)
         } catch (e: IllegalArgumentException) {
             e.printStackTrace()
         }
@@ -303,9 +300,9 @@ class StreamingCore : Service(), MetadataOutput {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val serviceChannel = NotificationChannel(
-                    Companion.CHANNEL_ID,
-                    Companion.CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_LOW
+                CHANNEL_ID,
+                CHANNEL_NAME,
+                NotificationManager.IMPORTANCE_LOW
             )
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager?.createNotificationChannel(serviceChannel)
@@ -321,12 +318,13 @@ class StreamingCore : Service(), MetadataOutput {
         }
         val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
 
+        // TODO: Before Upgrade over Exoplayer 2.14.2 switch this to  PlayerNotificationManager.Builder
         playerManager = PlayerNotificationManager.createWithNotificationChannel(
             this,
             "Channel_id",
             me.sithiramunasinghe.flutter.flutter_radio_player.R.string.channel_name,
             me.sithiramunasinghe.flutter.flutter_radio_player.R.string.channel_description,
-            Companion.NOTIFICATION_ID,
+            NOTIFICATION_ID,
             object : PlayerNotificationManager.MediaDescriptionAdapter {
                 override fun getCurrentContentTitle(player: Player): CharSequence {
                     return title
@@ -346,6 +344,7 @@ class StreamingCore : Service(), MetadataOutput {
                 ): Bitmap? {
                     return null
                 }
+
             },
             object : PlayerNotificationManager.NotificationListener {
                 override fun onNotificationPosted(
@@ -353,7 +352,7 @@ class StreamingCore : Service(), MetadataOutput {
                     notification: Notification,
                     ongoing: Boolean
                 ) {
-                    startForeground(Companion.NOTIFICATION_ID, notification)
+                    startForeground(NOTIFICATION_ID, notification)
                 }
 
                 override fun onNotificationCancelled(
@@ -365,37 +364,37 @@ class StreamingCore : Service(), MetadataOutput {
             }
         ).apply {
             setUseStopAction(false)
-            setUseNavigationActionsInCompactView(false)
-            setUseNavigationActions(false)
+            setUseNextActionInCompactView(false)
+            setUsePreviousAction(false)
             setPlayer(player)
         }
     }
 
-//    private fun buildNotification(
-//            title: String,
-//            description: String,
-//            packageIntentName: String): Notification?
-//    {
-//        var notificationIntent: Intent? = null
-//
-//        if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
-//            notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
-//            notificationIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-//        }
-//        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
-//        val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
-//                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-//                .setPriority(NotificationCompat.PRIORITY_LOW)
-//                .setWhen(System.currentTimeMillis())
-//                .setStyle(androidx.media.app.NotificationCompat.MediaStyle())
-//                .setColorized(true)
-//                .setContentText(description)
-//                .setContentTitle(title)
-//                .setAutoCancel(true)
-//                .setSmallIcon(android.R.drawable.stat_sys_headset)
-//                .setContentIntent(pendingIntent)
-//        return notificationBuilder.build()
-//    }
+    /*private fun buildNotification(
+            title: String,
+            description: String,
+            packageIntentName: String): Notification?
+    {
+        var notificationIntent: Intent? = null
+
+        if (packageIntentName.isNotEmpty() && packageName.isNotEmpty()) {
+            notificationIntent = packageManager.getLaunchIntentForPackage(packageName)
+            notificationIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0)
+        val notificationBuilder = NotificationCompat.Builder(this, Companion.CHANNEL_ID)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setWhen(System.currentTimeMillis())
+                .setStyle(androidx.media.app.NotificationCompat.MediaStyle())
+                .setColorized(true)
+                .setContentText(description)
+                .setContentTitle(title)
+                .setAutoCancel(true)
+                .setSmallIcon(android.R.drawable.stat_sys_headset)
+                .setContentIntent(pendingIntent)
+        return notificationBuilder.build()
+    }*/
 
     /**
      * Split metadata

@@ -3,7 +3,7 @@ package me.sithiramunasinghe.flutter.flutter_radio_player
 import android.content.*
 import android.os.IBinder
 import androidx.annotation.NonNull
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.localbroadcastmanager.content.LocalBroadcastManager.*
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -20,7 +20,7 @@ import me.sithiramunasinghe.flutter.flutter_radio_player.core.enums.PlayerMethod
 import java.util.logging.Logger
 
 /** FlutterRadioPlayerPlugin */
-public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
+class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
     private var logger = Logger.getLogger(FlutterRadioPlayerPlugin::javaClass.name)
 
     private lateinit var methodChannel: MethodChannel
@@ -107,8 +107,8 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         methodChannel.setMethodCallHandler(null)
-        LocalBroadcastManager.getInstance(applicationContext).unregisterReceiver(broadcastReceiver)
-        LocalBroadcastManager.getInstance(applicationContext).unregisterReceiver(broadcastReceiverMetaDetails)
+        getInstance(applicationContext).unregisterReceiver(broadcastReceiver)
+        getInstance(applicationContext).unregisterReceiver(broadcastReceiverMetaDetails)
     }
 
 
@@ -128,8 +128,8 @@ public class FlutterRadioPlayerPlugin : FlutterPlugin, MethodCallHandler {
 
 
         logger.info("Setting up broadcast receiver with event sink")
-        LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiver, IntentFilter(broadcastActionName))
-        LocalBroadcastManager.getInstance(context).registerReceiver(broadcastReceiverMetaDetails, IntentFilter(broadcastChangedMetaDataName))
+        getInstance(context).registerReceiver(broadcastReceiver, IntentFilter(broadcastActionName))
+        getInstance(context).registerReceiver(broadcastReceiverMetaDetails, IntentFilter(broadcastChangedMetaDataName))
 
         logger.info("Streaming Audio Player Engine Build Complete...")
 
